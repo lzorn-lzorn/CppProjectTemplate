@@ -1,3 +1,10 @@
+build/
+cmake-build/
+cmake-build-debug/
+cmake-build-release/
+cmake-debug-build/
+cmake-release-build/
+
 # Prerequisites
 *.d
 
