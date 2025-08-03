@@ -34,9 +34,10 @@ else()
     message(FATAL_ERROR "Unknown Platform")
 endif()
 
-add_executable(${PROJECT_NAME} ${sources})
-
 add_subdirectory(intern)
 add_subdirectory(extern)
+
+add_executable(${PROJECT_NAME} ${sources})
+
 
 target_include_directories(${PROJECT_NAME} PUBLIC include/)
