@@ -5,9 +5,27 @@
 #include "traits.hpp"
 #include "../tools/static_for.hpp"
 namespace Math {
-
 template <Arithmetic Tp, size_t Dimension>
+struct RowTag{};
+template <Arithmetic Tp, size_t Dimension>
+struct ColTag{};
+template <Arithmetic Tp, size_t Dimension, typename Type=ColTag<Tp, Dimension>>
 class Vector{
+public:
+    using value_type = Tp;
+    static constexpr size_t dimension = Dimension;
+public:
+    Vector() = default;
+    Vector(const Vector&) = default;
+    Vector(Vector&&) = default;
+    Vector& operator=(const Vector&) = default;
+    Vector& operator=(Vector&&) = default;
+    bool operator==(const Vector&) const noexcept;
+    bool operator!=(const Vector&) const noexcept;
+    Vector& operator+(const Vector&) noexcept;
+    Vector& operator-(const Vector&) noexcept;
+    Vector& operator+(const value_type) noexcept;
+    Vector& operator-(const value_type) noexcept;
 public:
     Vector& Normalize(){
         const double len = Length();
@@ -49,4 +67,7 @@ private:
 template <Arithmetic Tp>
 class Vector<Tp, 1>{};
 
+inline static bool IsVertical() noexcept;
+
+inline static bool IsParallel() noexcept;
 }
