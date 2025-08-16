@@ -1,20 +1,22 @@
 
-#include "../intern/extra_functions/object_counter.hpp"
-#include <iostream>
-#include <syncstream>
-#include <vector>
-#include <thread>
-#include <chrono>
-#include <iomanip>
+# Describe
+这是一个基于CRTP的额外功能库, 其提供了一些通用的对象功能扩展, 具体使用方式为:
+This library support some extra function by Curiously Recurring Template Pattern(CRTP).
 
-using namespace std;
-
+# Usage
+```Cpp
+// Get one extra function
 template <template<typename> typename Extra>
-class MyClass : public Extra<MyClass<Extra>> {};
+class YourClass : public Extra<YourClass<Extra>> {};
 
-// 假设 Extra::ObjCounter 已在你的代码中定义好
+// Get more extra functions
+template <template<typename...> typename... ExtraFunctions>
+class YourClass : public ExtraFunctions<YourClass<ExtraFunctions...>>...{};
+```
 
-// 获取当前时间的字符串
+
+# Test
+```Cpp
 std::string now_time() {
     auto now = std::chrono::system_clock::now();
     auto t = std::chrono::system_clock::to_time_t(now);
@@ -44,3 +46,4 @@ int main() {
     std::osyncstream(std::cout) << "[Main] Final count: " << MyClass<Extra::ObjCounter>::GetCount() << std::endl;
     return 0;
 }
+```
