@@ -3,7 +3,10 @@
 这是一个基于CRTP的额外功能库, 其提供了一些通用的对象功能扩展, 具体使用方式为:
 This library support some extra function by Curiously Recurring Template Pattern(CRTP).
 
-# Usage
+# Object Counter
+Object Counter 是一个对象数量计时器, 他可以帮助你计算你创建的类的数量, 同时他是线程安全的
+There is a thread-safe ObjectCount, which can help count objects you create
+## Usage
 ```Cpp
 // Get one extra function
 template <template<typename> typename Extra>
@@ -15,7 +18,7 @@ class YourClass : public ExtraFunctions<YourClass<ExtraFunctions...>>...{};
 ```
 
 
-# Test
+## Test
 ```Cpp
 std::string now_time() {
     auto now = std::chrono::system_clock::now();
