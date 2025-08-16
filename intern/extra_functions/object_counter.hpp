@@ -37,4 +37,5 @@ namespace Extra{
     private:
         static inline std::atomic<size_t> count = 0;
     };
+
 }
