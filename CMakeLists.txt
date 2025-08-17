@@ -40,5 +40,6 @@ add_subdirectory(extern)
 add_executable(${PROJECT_NAME} ${sources})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE extra_functions)
+target_link_libraries(${PROJECT_NAME} PRIVATE benchmark::benchmark)
 
 target_include_directories(${PROJECT_NAME} PUBLIC include/)
