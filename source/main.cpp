@@ -1,28 +1,53 @@
-// #include <benchmark/benchmark.h>
 
-// // 一个简单的基准函数示例
-// static void BM_StringCreation(benchmark::State& state) {
-//     for (auto _ : state) {
-//         std::string empty_string;
-//     }
-// }
-// BENCHMARK(BM_StringCreation);
-
-// // 你可以添加更多的基准测试函数
-// static void BM_VectorPushBack(benchmark::State& state) {
-//     for (auto _ : state) {
-//         std::vector<int> v;
-//         for (int i = 0; i < state.range(0); ++i) {
-//             v.push_back(i);
-//         }
-//     }
-// }
-// BENCHMARK(BM_VectorPushBack)->Arg(1000);
-
-// BENCHMARK_MAIN();
-#include <SDL3/SDL.h>
+#include "SDL3/SDL.h"
+#include "SDL3/SDL_main.h"
 #include <iostream>
-int main(){
-    std::cout << "Hello, SDL3!" << std::endl;
+#include "../intern/render/context.h"
+#include "SDL3/SDL_init.h"
+#include "SDL3/SDL_log.h"
+#include "SDL3/SDL_video.h"
+int main(int argc, char* argv[]){
+    std::cout << "SDL_main" << std::endl;
+    SDL_Window* window;
+    
+    /* 初始化 SDL 音频文件失败 */
+    if (SDL_Init(SDL_INIT_VIDEO)){
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Could not initialize SDL: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    window = SDL_CreateWindow(
+        "MyRender3D",
+        1920,
+        1080,
+        SDL_WINDOW_VULKAN
+    );
+
+    if (!window) {
+        SDL_LogError(
+            SDL_LOG_CATEGORY_ERROR, 
+            "Could not create window: %s\n", 
+            SDL_GetError()
+        );
+        SDL_Quit();
+        return 1;
+    }
+
+    /* SDL 事件循环 */
+    bool bDone = false;
+    while(!bDone) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+
+            /* 触发了退出事件 */
+            if (event.type == SDL_EVENT_QUIT) {
+                bDone = true;
+            }
+        }
+        /* 游戏逻辑 和 渲染逻辑 */
+    }
+
+    SDL_DestroyWindow(window);
+    SDL_Quit();
     return 0;
 }
