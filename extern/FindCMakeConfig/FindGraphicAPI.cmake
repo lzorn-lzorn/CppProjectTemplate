@@ -1,0 +1,7 @@
+find_package(Vulkan REQUIRED)
+if (Vulkan_FOUND)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${Vulkan_INCLUDE_DIR})
+    target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
+else()
+    message(FATAL_ERROR "Vulkan not found")
+endif()
