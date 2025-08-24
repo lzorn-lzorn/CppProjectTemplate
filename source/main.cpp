@@ -11,7 +11,7 @@ int main(int argc, char* argv[]){
     SDL_Window* window;
     
     /* 初始化 SDL 音频文件失败 */
-    if (SDL_Init(SDL_INIT_VIDEO)){
+    if (!SDL_Init(SDL_INIT_VIDEO)){
         SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Could not initialize SDL: %s\n", SDL_GetError());
         return 1;
     }
@@ -20,7 +20,7 @@ int main(int argc, char* argv[]){
         "MyRender3D",
         1920,
         1080,
-        SDL_WINDOW_VULKAN
+        0
     );
 
     if (!window) {
@@ -41,6 +41,7 @@ int main(int argc, char* argv[]){
 
             /* 触发了退出事件 */
             if (event.type == SDL_EVENT_QUIT) {
+                std::cout << "Quit Event" << std::endl;
                 bDone = true;
             }
         }

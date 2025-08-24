@@ -1,6 +1,4 @@
 #include "context.h"
-#include "vulkan/vulkan_core.h"
-#include "vulkan/vulkan_structs.hpp"
 #include <memory>
 
 namespace Render {
@@ -10,7 +8,7 @@ VulkanContext::VulkanContext() {
     vk::InstanceCreateInfo info;
     vk::ApplicationInfo appInfo;
     /* 以下设置 vk 的信息(基本上都是版本信息, 不是很重要) */
-    appInfo.setApiVersion(VK_API_VERSION_1_3);
+    appInfo.setApiVersion(VK_API_VERSION_1_4);
     
     /* 设置完成 */
     info.setPApplicationInfo(&appInfo);
