@@ -1,54 +1,47 @@
-
-#include "SDL3/SDL.h"
-#include "SDL3/SDL_main.h"
 #include <iostream>
-#include "../intern/render/context.h"
-#include "SDL3/SDL_init.h"
-#include "SDL3/SDL_log.h"
-#include "SDL3/SDL_video.h"
-int main(int argc, char* argv[]){
-    std::cout << "SDL_main" << std::endl;
-    SDL_Window* window;
-    
-    /* 初始化 SDL 音频文件失败 */
-    if (!SDL_Init(SDL_INIT_VIDEO)){
-        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Could not initialize SDL: %s\n", SDL_GetError());
-        return 1;
-    }
+#include <thread>
+#include "../intern/print/Print.hpp"
+int main() {
+    using namespace Tools;
 
-    window = SDL_CreateWindow(
-        "MyRender3D",
-        1920,
-        1080,
-        0
-    );
+    Printable p;
 
-    if (!window) {
-        SDL_LogError(
-            SDL_LOG_CATEGORY_ERROR, 
-            "Could not create window: %s\n", 
-            SDL_GetError()
-        );
-        SDL_Quit();
-        return 1;
-    }
+    // 设置输出流
+    p.SetStream(std::cout);
 
-    /* SDL 事件循环 */
-    bool bDone = false;
-    while(!bDone) {
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
+    // 设置时间
+    auto now = std::chrono::system_clock::now();
+    p.SetTime(now);
 
-            /* 触发了退出事件 */
-            if (event.type == SDL_EVENT_QUIT) {
-                std::cout << "Quit Event" << std::endl;
-                bDone = true;
-            }
-        }
-        /* 游戏逻辑 和 渲染逻辑 */
-    }
+    // 设置线程ID
+    p.SetThreadId(std::this_thread::get_id());
 
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+    // 测试 operator()
+    std::cout << "Testing operator():\n";
+    p(std::cout, "Extra argument1", 42, 3.14);
+
+    // 测试 Message()
+    std::cout << "\nTesting Message():\n";
+    std::string msg = p.Message("Extra arg2", 123, "hello");
+    std::cout << msg << std::endl;
+
+    // 只设置部分成员
+    Printable p2;
+    p2.SetStream(std::cout);
+    p2.SetTime(now);
+    std::cout << "\nTesting Message() (no thread id):\n";
+    std::cout << p2.Message() << std::endl;
+
+    Printable p3;
+    p3.SetStream(std::cout);
+    p3.SetThreadId(std::this_thread::get_id());
+    std::cout << "\nTesting Message() (no time):\n";
+    std::cout << p3.Message() << std::endl;
+
+    Printable p4;
+    p4.SetStream(std::cout);
+    std::cout << "\nTesting Message() (no thread id and no time):\n";
+    std::cout << p4.Message() << std::endl;
+
     return 0;
 }
