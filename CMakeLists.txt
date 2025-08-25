@@ -22,18 +22,12 @@ file(GLOB_RECURSE sources PUBLIC
 )
 
 if(WIN32)
-    # , Windows下的输出路径
-    # note: Windows 下 dll 和 exe 必须在同一个目录下
     message("===========Current OS: Windows===========")
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
-    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/lib")
+
 elseif(UNIX)
     if(APPLE)
-        # , IOS下的输出路径
         message("===========Current OS: IOS===========")
     else()
-        # , Linux下的输出路径
         message("===========Current OS: Linux===========")
     endif()
 else()
