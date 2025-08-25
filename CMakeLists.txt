@@ -13,6 +13,9 @@ project(MyProject            # 项目名称
     VERSION 0.1.0            # 项目版本    
 )
 
+# 设置install路径
+set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install)
+
 file(GLOB_RECURSE sources PUBLIC
     source/*.cpp
     source/*.c
