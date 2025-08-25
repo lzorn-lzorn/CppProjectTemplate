@@ -17,6 +17,7 @@ struct Number{
     Number(int v) : value(static_cast<double>(v)) {}
     Number(float v) : value(static_cast<double>(v)) {}
     Number(double v) : value(v) {}
+    Number(long double v) : value(static_cast<double>(v)) {}
     Number(Number&& other) noexcept : value(other.value) {
         other.value = 0.0;
     }
@@ -57,7 +58,9 @@ struct Number{
     operator double() const noexcept {
         return value;
     }
-
+    operator long double() const noexcept {
+        return static_cast<long double>(value);
+    }
     // 比较运算符
     bool operator==(const Number& other) const noexcept {
         return value == other.value;
@@ -83,11 +86,17 @@ struct Number{
     Number operator-(const Number& other) const { return Number(value - other.value); }
     Number operator*(const Number& other) const { return Number(value * other.value); }
     Number operator/(const Number& other) const { return Number(value / other.value); }
+    Number operator-() const { return Number(-value); } // 一元负号
+    Number operator^(const double exp) const { return Number(std::powl(value, exp)); }
+    Number operator^(const int exp) const { return Number(std::pow(value, exp)); }
+
 
     Number& operator+=(const Number& other) { value += other.value; return *this; }
     Number& operator-=(const Number& other) { value -= other.value; return *this; }
     Number& operator*=(const Number& other) { value *= other.value; return *this; }
     Number& operator/=(const Number& other) { value /= other.value; return *this; }
+    Number operator^=(const int exp) { value = std::pow(value, exp); return *this; }
+    Number operator^=(const double exp) { value = std::powl(value, exp); return *this; }
 
     // 与原生类型运算
     Number operator+(int v) const { return Number(value + v); }
@@ -122,6 +131,9 @@ struct Number{
         return os;
     }
 
+    Number Sqrt() const {
+        return Number(std::sqrt(value));
+    }
     std::string ToString(int precision = 2) const {
         std::ostringstream oss;
         if (precision == 0) {
