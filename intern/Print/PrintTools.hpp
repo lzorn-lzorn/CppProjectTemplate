@@ -54,4 +54,15 @@ inline std::string GetTimeToString(
     return std::string(buffer);
 #endif
 }
+
+/* 
+ * @function: 打印单个值
+ * @Supported types: 
+ * @   BaseType: int, float, double, std::string, bool, const char*, enum
+ * @   AdvancedType: std::optional, std::variant, std::any
+ */
+template <typename ValTy>
+inline std::string ValToString(const ValTy& val){
+
+}
 }
