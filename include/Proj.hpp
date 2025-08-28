@@ -1,7 +1,7 @@
 #pragma once
 
 
-#if defined(__cplusplus) && __cplusplus >= 201703L
+#if defined(__cpp_inline_variables)
     #define INLINE inline
 
 #else 
