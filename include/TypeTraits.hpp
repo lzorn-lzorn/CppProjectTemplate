@@ -1,5 +1,5 @@
 #pragma once
-#include "TypeTraits.hpp"
+
 #include <type_traits>
 #include <string>
 #include <memory>
@@ -7,8 +7,8 @@
 #include <tuple>
 
 #include <utility>
-#include <Proj.hpp>
-#include <TypeTraitsImpl.hpp>
+#include "Proj.hpp"
+#include "TypeTraitsImpl.hpp"
 
 
 // simple remove_cvref for C++11 compatibility

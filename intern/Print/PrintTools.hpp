@@ -6,11 +6,11 @@
 #include <any>
 #include <string>
 #include <type_traits>
-#include <../../include/TypeTraits.hpp>
+#include "../../include/TypeTraits.hpp"
 #if defined(__cpp_lib_format)
   #include <format>
 #endif
-#include <../../include/Proj.hpp>
+#include "../../include/Proj.hpp"
 namespace Tools{
 using namespace std::chrono;
 /*
