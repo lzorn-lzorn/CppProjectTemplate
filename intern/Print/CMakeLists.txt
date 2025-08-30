@@ -17,6 +17,6 @@ add_library(${TARGET_NAME} INTERFACE)
 target_include_directories(${TARGET_NAME} INTERFACE 
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../Base
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Include
 )
 

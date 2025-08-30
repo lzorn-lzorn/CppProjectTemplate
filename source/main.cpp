@@ -1,6 +1,6 @@
 #include <iostream>
 #include <thread>
-#include "../intern/print/Print.hpp"
+#include "../Intern/Print/Print.hpp"
 int main() {
     using namespace Tools;
 

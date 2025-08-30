@@ -14,11 +14,11 @@ project(MyProject            # 项目名称
 )
 
 # 设置install路径
-set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install)
+set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/Install)
 
 file(GLOB_RECURSE sources PUBLIC
-    source/*.cpp
-    source/*.c
+    Source/*.cpp
+    Source/*.c
 )
 
 if(WIN32)
@@ -34,15 +34,15 @@ else()
     message(FATAL_ERROR "Unknown Platform")
 endif()
 
-include(cmake/cmaketools.cmake)
-include(cmake/options.cmake)
+include(Cmake/CmakeTools.cmake)
+include(Cmake/Options.cmake)
 
 add_executable(${PROJECT_NAME} ${sources})
 
-add_subdirectory(intern)
-add_subdirectory(extern)
+add_subdirectory(Intern)
+add_subdirectory(Extern)
 
 # target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3)
-target_link_libraries(${PROJECT_NAME} PRIVATE extra_functions)
+target_link_libraries(${PROJECT_NAME} PRIVATE ExtraFunctions)
 
-target_include_directories(${PROJECT_NAME} PUBLIC include/)
+target_include_directories(${PROJECT_NAME} PUBLIC Include/)

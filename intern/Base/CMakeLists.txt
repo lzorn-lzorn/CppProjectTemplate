@@ -10,7 +10,7 @@ add_library(Base INTERFACE)
 
 target_include_directories(Base INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<INSTALL_INTERFACE:include>
+    $<INSTALL_INTERFACE:Include>
     # include 路径下有个 Base 文件夹
     # 此时别人应用时可以 #include <Base/Number.hpp>
 )
@@ -30,7 +30,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ DESTINATION include
 install(TARGETS Base EXPORT BaseTargets)
 
 install(FILES Number.hpp String.hpp
-    DESTINATION include # 把 Number.hpp 安装到 include 目录
+    DESTINATION Include # 把 Number.hpp 安装到 include 目录
 )
 
 # 安装文档
@@ -41,7 +41,7 @@ install(FILES Number.hpp String.hpp
 # 导出targets为cmake包
 install(EXPORT BaseTargets
     NAMESPACE Base:: # 这里导出为 Base::Base
-    DESTINATION lib/cmake/Base
+    DESTINATION Lib/Cmake/Base
 )
 
 # 生成Config文件
@@ -54,10 +54,10 @@ write_basic_package_version_file(
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/BaseConfig.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/BaseConfig.cmake"
-    INSTALL_DESTINATION lib/cmake/Base
+    INSTALL_DESTINATION Lib/Cmake/Base
 )
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/BaseConfig.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/BaseConfigVersion.cmake"
-    DESTINATION lib/cmake/Base
+    DESTINATION Lib/Cmake/Base
 )

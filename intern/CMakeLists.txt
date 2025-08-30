@@ -1,2 +1,2 @@
-add_subdirectory(extra_functions)
-add_subdirectory(print)
+add_subdirectory(ExtraFunctions)
+add_subdirectory(Print)

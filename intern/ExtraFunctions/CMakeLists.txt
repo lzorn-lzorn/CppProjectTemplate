@@ -1,6 +1,6 @@
 
 
-set(TARGET_NAME extra_functions)
+set(TARGET_NAME ExtraFunctions)
 
 # file(GLOB_RECURSE
 # INC
