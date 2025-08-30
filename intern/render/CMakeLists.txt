@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-set(TARGET_NAME render)
+set(TARGET_NAME Render)
 
 # 选项：是否构建为动态库（默认 OFF -> 构建静态库）
 option(PROJ_BUILD_SHARED "Build ${TARGET_NAME} as shared library" OFF)
