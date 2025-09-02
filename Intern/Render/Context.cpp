@@ -86,6 +86,7 @@ void VulkanContext::InitPhysicalDevice() {
     auto properties = vkPhysicalDevice.getQueueFamilyProperties();
     for (int i=0; i < properties.size(); ++i) {
         const auto& property = properties[i];
+        /* property.queueCount; 最多能创建多少个队列 */
         /* 查询队列图形操作的命令队列 */
         if (property.queueFlags | vk::QueueFlagBits::eGraphics) {
             queueFamilyIndices.graphicsQueue = i;
@@ -104,6 +105,8 @@ void VulkanContext::InitPhysicalDevice() {
     vkDevice = vkPhysicalDevice.createDevice(deviceInfo);
 
     /* 获取设备队列 */
+    /* param1: 命令队列下标 */
+    /* param2: 拿第几个队列出来 */
     vkGraphicsQueue = vkDevice.getQueue(queueFamilyIndices.graphicsQueue.value(), 0);
 }
 

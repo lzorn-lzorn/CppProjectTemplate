@@ -21,12 +21,11 @@ public:
     static VulkanContext& Instance();
     ~VulkanContext();
     vk::Instance vkInstance;
+    /* 物理信息: 只支持查询信息 */
     vk::PhysicalDevice vkPhysicalDevice;
-    /* 
-        逻辑设备: Vulkan 规定不能直接和物理设备( vkPhysicalDevice ) 交互, 
-        vkPhysicalDevice 只支持信息查询
-    */
+    /* 逻辑设备: Vulkan 规定不能直接和物理设备(vkPhysicalDevice) 交互 */
     vk::Device vkDevice;
+    /* 图像操作的命令队列 */
     vk::Queue vkGraphicsQueue;
     QueueFamilyIndices queueFamilyIndices;
 private:
