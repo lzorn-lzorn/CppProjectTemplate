@@ -1,7 +1,10 @@
 #include "context.h"
+#include <cstddef>
 #include <memory>
 #include <vector>
 #include <iostream>
+#include <vulkan/vulkan_handles.hpp>
+#include <vulkan/vulkan_structs.hpp>
 
 namespace Render {
 std::unique_ptr<VulkanContext> VulkanContext::instance = nullptr;
@@ -43,6 +46,7 @@ VulkanContext::VulkanContext() {
 }
 
 void VulkanContext::ToReleaseResources() {
+    vkDevice.destroy();
     vkInstance.destroy();
 }
 
@@ -57,6 +61,10 @@ void VulkanContext::Init() {
 
 void VulkanContext::InitPhysicalDevice() {
     auto devices = vkInstance.enumeratePhysicalDevices();
+    /* 查询当前显卡支持的特性 */
+    // for (auto& device : devices) {
+    //     auto features = device.getFeatures();
+    // }
     if (devices.empty()) {
         this->ToReleaseResources();
         throw std::runtime_error("No physical device found");
@@ -65,16 +73,38 @@ void VulkanContext::InitPhysicalDevice() {
     vkPhysicalDevice = devices.front(); 
 
     /* 输出调试信息 */
+    /* device type: vkPhysicalDevice.getProperties().deviceType
+        - eCPU: 软渲染(CPU 作为显卡)
+        - eDiscreteGPU: 独立显卡
+        - eIntegratedGPU: 集成显卡
+        - eOther: 其他
+        - eVirtualGPU: 虚拟显卡
+    */
     std::cout << "Selected physical device: " << vkPhysicalDevice.getProperties().deviceName << std::endl;
 
     /* 查询物理设备 */
     auto properties = vkPhysicalDevice.getQueueFamilyProperties();
     for (int i=0; i < properties.size(); ++i) {
         const auto& property = properties[i];
+        /* 查询队列图形操作的命令队列 */
         if (property.queueFlags | vk::QueueFlagBits::eGraphics) {
-            
+            queueFamilyIndices.graphicsQueue = i;
+            break;
         }
     }
+
+    /* 创建物理设备 */
+    vk::DeviceCreateInfo deviceInfo; /* 与 vk::Instance 相同的信息会延续下来 */
+    vk::DeviceQueueCreateInfo queueInfo;
+    float priority = 1.0f; /* 低到高 0 ~ 1f */
+    queueInfo.setPQueuePriorities(&priority)
+             .setQueueCount(1) /* 创建队列时使用的数量 */
+             .setQueueFamilyIndex(queueFamilyIndices.graphicsQueue.value());
+    deviceInfo.setQueueCreateInfos(queueInfo);
+    vkDevice = vkPhysicalDevice.createDevice(deviceInfo);
+
+    /* 获取设备队列 */
+    vkGraphicsQueue = vkDevice.getQueue(queueFamilyIndices.graphicsQueue.value(), 0);
 }
 
 void VulkanContext::Cleanup() {
@@ -82,7 +112,6 @@ void VulkanContext::Cleanup() {
 }
 
 VulkanContext& VulkanContext::Instance() {
-
     return *instance;
 }
 
