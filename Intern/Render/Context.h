@@ -1,6 +1,8 @@
 #pragma once
+#include "Pipeline.h"
 #include "vulkan/vulkan.hpp"
 #include "Utilities.hpp"
+#include "Pipeline.h"
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -31,8 +33,6 @@ private:
     void InitImages();
     void CreateImageViews(); 
 };
-
-
 
 class VulkanContext final{
 public:
@@ -84,6 +84,7 @@ public:
     vk::Queue vkPresentQueue;
     vk::SurfaceKHR vkSurface;
     std::unique_ptr<Swapchain> swapchain;
+    std::unique_ptr<RenderProcess> renderProcess;
     QueueFamilyIndices queueFamilyIndices;
 public:
     void InitSwapchain(int width, int height){
@@ -93,10 +94,12 @@ public:
         swapchain.reset();
     }
 private:
-    void ToReleaseResources();
+    static std::unique_ptr<VulkanContext> instance;
 private:
     VulkanContext(const std::vector<const char*>& extensions, CreateSurfaceFunc func);
+
     void InitPhysicalDevice(CreateSurfaceFunc func);
-    static std::unique_ptr<VulkanContext> instance;
+    void ToReleaseResources();
+    
 };
 }

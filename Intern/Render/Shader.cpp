@@ -2,6 +2,7 @@
 #include "Shader.h"
 #include "Context.h"
 #include <string>
+#include <vulkan/vulkan_structs.hpp>
 
 namespace Render {
 
@@ -14,6 +15,20 @@ void Shader::Quit() {
 	instance.reset();
 }
  
+void Shader::InitStage() {
+    stages.resize(2);
+    stages[0].setStage(vk::ShaderStageFlagBits::eVertex)
+             .setModule(vertexModule)
+             .setPName("main");
+    stages[1].setStage(vk::ShaderStageFlagBits::eFragment)
+             .setModule(fragmentModule)
+             .setPName("main");
+}
+
+std::vector<vk::PipelineShaderStageCreateInfo> Shader::GetShaderStages() const {
+    return stages;
+}
+
 Shader::~Shader(){
     auto& device = VulkanContext::Instance().vkDevice;
     device.destroyShaderModule(vertexModule);
@@ -30,6 +45,8 @@ Shader::Shader(const std::string& vertexSource, const std::string& fragSource) {
     createInfo.codeSize = fragSource.size();
     createInfo.pCode = (uint32_t*)fragSource.data();
     fragmentModule = VulkanContext::Instance().vkDevice.createShaderModule(createInfo);
+
+    InitStage();
 }
 
 }
