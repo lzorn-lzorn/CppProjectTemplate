@@ -5,6 +5,15 @@ include(../../Cmake/FindGraphicAPI.cmake)
 # 选项：是否构建为动态库（默认 OFF -> 构建静态库）
 option(PROJ_BUILD_SHARED "Build ${TARGET_NAME} as shared library" OFF)
 
+# 寻找编译glsl的编译器 glslc
+find_program(GLSLC_PROGRAM glslc REQUIRED)
+execute_process(COMMAND ${GLSLC_PROGRAM} ${CMAKE_CURRENT_SOURCE_DIR}/Shader/shader.vert -o ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Out/vert.spv)
+execute_process(COMMAND ${GLSLC_PROGRAM} ${CMAKE_CURRENT_SOURCE_DIR}/Shader/shader.frag -o ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Out/frag.spv)
+
+
+
+
+
 # 找到头/源文件（仅用于 IDE/file listing）注意：include dirs 下面要使用目录而不是文件列表
 file(GLOB_RECURSE INC CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
