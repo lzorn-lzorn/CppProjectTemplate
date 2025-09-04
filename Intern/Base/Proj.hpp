@@ -79,5 +79,11 @@
     #define CONSTEXPR
 #endif
 
+#if __cplusplus >= 202002L
+#define CONSTEXPR20 constexpr
+#else
+#define CONSTEXPR20
+#endif
+
 
 

@@ -248,3 +248,10 @@ concept IsPrintable = requires (std::ostream& os,  const Ty& ty){
 };
 
 #endif
+
+/* 判断 T 是否是 Template 的一个特化 */
+template <typename Ty, template <typename ...> typename Template>
+struct IsSpecializationOf : std::false_type {};
+
+template <typename ...Args, template <typename ...> typename Template>
+struct IsSpecializationOf<Template<Args...>, Template> : std::true_type {};

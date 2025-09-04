@@ -5,6 +5,8 @@
 #include <type_traits>
 #include <utility>
 #include "Traits/TraitsTools.hpp"
+#include "Traits/TypeTraits.hpp"
+#include "Proj.hpp"
 namespace BaseLib {
 
 struct NulloptTp{
@@ -195,6 +197,109 @@ public:
 		>
 	)  : MyBaseClassTp (std::in_place, list, std::forward<Types>(args)...) {}
 
-};	
+	template <typename Ty2>
+	using __IsAllowDirectConversion = std::bool_constant<
+		std::conjunction_v< 
+			/* 禁止 optional 之间直接转换 */
+			std::negation<
+				std::is_same<
+					std::remove_cvref_t<Ty2>, 
+					Optional
+				>
+			>,
+			/* 禁止 std::in_place_t 之间直接转换 */
+			std::negation<
+				std::is_same<
+					std::remove_cvref_t<Ty2>, 
+					std::in_place_t
+				>
+			>,
+			std::negation<
+				/* 如果 _Ty 是 bool 类型，并且 _Ty2 是 optional 的特化 */
+				/* 为了避免 optional<bool> 从 optional<X> 直接转换成布尔值造成歧义 */
+				/* Eg: int -> bool 是可以隐式转换的, 但是 Optional<int> -> Optional<bool> 则不可 */
+				std::conjunction<
+					std::is_same<
+						std::remove_cvref_t<Ty>, 
+						bool
+					>,
+					IsSpecializationOf<
+						std::remove_cvref_t<Ty2>, 
+						Optional
+					>
+				>
+			>,
+			/* 可以用 _Ty2 构造 _Ty */
+			std::is_constructible<Ty, Ty2>
+		>
+	>;
 
+	template <
+		typename Ty2 = std::remove_cv_t<Ty>, 
+		std::enable_if_t<__IsAllowDirectConversion<Ty2>::value, int> = 0
+	>
+	constexpr explicit(!std::is_convertible_v<Ty2, Ty>) Optional(Ty2&& right)
+		noexcept(std::is_nothrow_constructible_v<Ty, Ty2>)
+		: MyBaseClassTp(std::in_place, std::forward<Ty2>(right)) {}
+
+
+	/* 用于判断是否允许将 optional<_Ty2> 自动解包为 _Ty，只有在特殊类型(如 bool)*/
+	/* 或者没有安全的构造/转换器存在时才允许自动 unwrap，防止类型歧义和不安全转换*/
+	template <typename Ty2>
+	using __IsAllowUnwrapping = std::bool_constant<
+		std::disjunction_v<
+			std::is_same<std::remove_cv_t<Ty>, bool>,
+			std::negation<
+				std::disjunction<
+					std::is_same<Ty, Ty2>,
+					std::is_constructible<Ty, Optional<Ty2>&>,
+					std::is_constructible<Ty, const Optional<Ty2>&>,
+					std::is_constructible<Ty, const Optional<Ty2>>,
+					std::is_constructible<Ty, Optional<Ty2>>,
+					std::is_convertible<Optional<Ty2>&, Ty>,
+					std::is_convertible<const Optional<Ty2>&, Ty>,
+					std::is_convertible<const Optional<Ty2>, Ty>,
+					std::is_convertible<Optional<Ty2>, Ty>
+				>
+			>
+		>
+	>;
+
+	template <
+		typename Ty2,
+		std::enable_if_t<
+			std::conjunction_v<
+				__IsAllowUnwrapping<Ty2>,
+				std::is_constructible<Ty, const Ty2&>
+			>, 
+			int
+		> = 0
+	>
+	CONSTEXPR20 explicit(!std::is_convertible_v<const Ty2&, Ty>) Optional (const Optional<Ty2>& that)
+		noexcept(std::is_nothrow_constructible_v<Ty, const Ty2&>) 
+	{
+		if (that){
+			this->__Construct(*that);
+		}
+	}
+
+
+	template <
+		typename Ty2,
+		std::enable_if_t<
+			std::conjunction_v<
+				__IsAllowUnwrapping<Ty2>,
+				std::is_constructible<Ty, Ty2&>
+			>, 
+			int
+		> = 0
+	>
+	CONSTEXPR20 explicit(!std::is_convertible_v<const Ty2&, Ty>) Optional (const Optional<Ty2>&& that)
+		noexcept(std::is_nothrow_constructible_v<Ty, Ty2>) 
+	{
+		if (that){
+			this->__Construct(std::move(*that));
+		}
+	}
+};	
 }
