@@ -4,7 +4,6 @@
 #include <string>
 #include <memory>
 #include <iterator>
-#include <tuple>
 
 #include <utility>
 #include "../Proj.hpp"
