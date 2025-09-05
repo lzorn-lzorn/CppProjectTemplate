@@ -1,5 +1,6 @@
 #pragma once
 
+#include <queue>
 #include <type_traits>
 #include <string>
 #include <memory>
@@ -254,3 +255,48 @@ struct IsSpecializationOf : std::false_type {};
 
 template <typename ...Args, template <typename ...> typename Template>
 struct IsSpecializationOf<Template<Args...>, Template> : std::true_type {};
+
+template <typename Ty, template <typename ...> typename Template>
+constexpr bool IsSpecializationValOf = false;
+
+template <typename ...Args, template <typename ...> typename Template>
+constexpr bool IsSpecializationValOf<Template<Args...>, Template> = true;
+
+namespace Detail{
+    void swap() = delete;/* 阻止无参 swap 被 ADL 选中 */ 
+
+    template <typename, typename = void>
+    struct HasADLSwap : std::false_type {};
+
+    template <typename Ty>
+    struct HasADLSwap<
+        Ty, 
+        std::void_t<decltype(swap(std::declval<Ty&>(), std::declval<Ty&>()))>
+    > : std::true_type {};
+}
+
+template <typename Ty>
+constexpr bool IsTriviallySwappableVal =
+    std::is_trivially_destructible_v<Ty> &&
+    std::is_trivially_move_constructible_v<Ty> &&
+    std::is_trivially_move_assignable_v<Ty> &&
+    !Detail::HasADLSwap<Ty>::value;
+
+template <typename Ty, typename ...Types>
+constexpr bool IsAnyValOf = (std::is_same_v<Ty, Types> || ...);
+
+/*
+ * @function: 只是声明一个函数不进行调用, 主要是为类型推断
+ * @ 1. FakeCopyInit<Ty>(E) 的类型是 Ty, 如果 Ty 是推导出来的, 则是 decay_t<decltype((E))>
+ * @        把引用、数组等转为对应的值类型
+ * @ 2. 只有当表达式 E 能隐式转换为类型 T，且类型 T 可析构时，这个表达式才是合法的
+ * @        如果你把一个不能转为 T 的表达式传进去，编译器会在用 SFINAE 做类型检测时判定为不合法
+ * @ 3. 只有当从 E 到 T 的转换和销毁 T 都不会抛异常时，_Fake_copy_init<T>(E) 才是 noexcept 的
+ * @        用于 noexcept 检查，比如 STL 的运算符模板里，判断某个操作是否能保证不会抛出异常
+ * @from: MSVC, 不能保证 GCC 和 Clang 也有这样的效果
+ */
+template <typename Ty>
+[[nodiscard]] Ty FakeCopyInit(Ty) noexcept;
+
+template <typename From, typename To>
+concept ImplicitlyConvertibletTo = std::is_convertible_v<From, To>;
