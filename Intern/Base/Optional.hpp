@@ -36,14 +36,14 @@ struct NonTrivialDummyTp {
 /* 平凡析构 + 指针 => 平凡指针 */
 template <typename Ty, bool = std::is_trivially_destructible_v<Ty>>
 struct OptionDestruct {
-	static_assert(IsPointerVal<Ty>, "The type Ty should not be a pointer");
+	static_assert(IsPointerVal<Ty>, "The type Ty should not be a pointer, pls use smart ptr");
 	union {
 		/* 如果你用 char 会触发零初始化机制, 导致最后多生成一条指令 */
 		NonTrivialDummyTp dummy;
 		std::remove_cv_t<Ty> value;
 	};
 
-	constexpr OptionDestruct() noexcept : dummy{} {}
+	constexpr OptionDestruct() noexcept : dummy{}, bHasValue(false) {}
 
 	template <typename Fn, typename Uty>
 	constexpr  OptionDestruct(ConstructFromInvokeResultTag, Fn&& fn, Uty&& arg)
@@ -52,12 +52,12 @@ struct OptionDestruct {
 				static_cast<Ty>(std::invoke(std::forward<Fn>(fn),  std::forward<Uty>(arg)))
 			)
 		)
-		: value(std::invoke(std::forward<Fn>(fn), std::forward<Uty>(arg))){}
+		: value(std::invoke(std::forward<Fn>(fn), std::forward<Uty>(arg))), bHasValue(true) {}
 
 	template <typename... Types>
 	constexpr explicit OptionDestruct(std::in_place_t, Types&&... Args)
 		noexcept(std::is_nothrow_constructible_v<Ty, Types...>)
-		: value(std::forward<Types>(Args)...) {}
+		: value(std::forward<Types>(Args)...), bHasValue(true) {}
 
 	void __Cleanup() noexcept {
 		value = nullptr;
@@ -67,7 +67,10 @@ struct OptionDestruct {
 		return value != nullptr;
 	}
 	void SetValue(bool bHasValue) noexcept {
+		this->bHasValue = bHasValue;
 	}
+private:
+	bool bHasValue;
 };
 
 /*
@@ -76,7 +79,7 @@ struct OptionDestruct {
 
 template <typename Ty>
 struct OptionDestruct<Ty, false>{
-	static_assert(IsPointerVal<Ty>, "The type Ty should not be a pointer");
+	static_assert(IsPointerVal<Ty>, "The type Ty should not be a pointer, pls use smart ptr");
 	union {
 		/* 如果你用 char 会触发零初始化机制, 导致最后多生成一条指令 */
 		NonTrivialDummyTp dummy;
