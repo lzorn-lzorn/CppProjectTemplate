@@ -1072,8 +1072,25 @@ constexpr auto Flatten(){}
 template <typename Ty>
 constexpr auto Fold(){}
 
-template <typename Ty>
-constexpr auto MakeOptional(){}
+template <typename Ty, typename Elem, typename... Types,
+	std::enable_if_t<
+		std::is_constructible_v<
+			Ty, 
+			std::initializer_list<Elem>&, 
+			Types...
+		>, 
+		int
+	> = 0
+>
+[[nodiscard]] constexpr auto MakeOptional(std::initializer_list<Elem> list, Types&&... args)
+	noexcept(
+		noexcept(
+			Optional<Ty>{std::in_place, list, std::forward<Types>(args)...}
+		)
+	)
+{
+	return Optional<Ty> {std::in_place, list, std::forward<Types>(args)...};
+}
 
 
 }
