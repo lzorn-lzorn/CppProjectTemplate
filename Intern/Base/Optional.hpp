@@ -32,15 +32,18 @@ struct NonTrivialDummyTp {
 	/* 避免在对象进行值初始化时进行零初始化 */
 	constexpr NonTrivialDummyTp() noexcept{} 
 };
+
+/* 平凡析构 + 指针 => 平凡指针 */
 template <typename Ty, bool = std::is_trivially_destructible_v<Ty>>
 struct OptionDestruct {
+	static_assert(IsPointerVal<Ty>, "The type Ty should not be a pointer");
 	union {
 		/* 如果你用 char 会触发零初始化机制, 导致最后多生成一条指令 */
 		NonTrivialDummyTp dummy;
 		std::remove_cv_t<Ty> value;
 	};
-	bool bHasValue;
-	constexpr OptionDestruct() noexcept : dummy{}, bHasValue(false) {}
+
+	constexpr OptionDestruct() noexcept : dummy{} {}
 
 	template <typename Fn, typename Uty>
 	constexpr  OptionDestruct(ConstructFromInvokeResultTag, Fn&& fn, Uty&& arg)
@@ -49,35 +52,38 @@ struct OptionDestruct {
 				static_cast<Ty>(std::invoke(std::forward<Fn>(fn),  std::forward<Uty>(arg)))
 			)
 		)
-		: value(std::invoke(std::forward<Fn>(fn), std::forward<Uty>(arg))), bHasValue(true){}
+		: value(std::invoke(std::forward<Fn>(fn), std::forward<Uty>(arg))){}
 
 	template <typename... Types>
 	constexpr explicit OptionDestruct(std::in_place_t, Types&&... Args)
 		noexcept(std::is_nothrow_constructible_v<Ty, Types...>)
-		: value(std::forward<Types>(Args)...), bHasValue(true) {}
+		: value(std::forward<Types>(Args)...) {}
 
-	void reset() noexcept {
-		bHasValue = false;
+	void __Cleanup() noexcept {
+		value = nullptr;
+	}
+	
+	bool HasValue() const noexcept {
+		return value != nullptr;
+	}
+	void SetValue(bool bHasValue) noexcept {
 	}
 };
 
 /*
  * @function: 非平凡析构的需要手动调用 ~Ty()
  */
+
 template <typename Ty>
-struct OptionDestruct<Ty, false> {
+struct OptionDestruct<Ty, false>{
+	static_assert(IsPointerVal<Ty>, "The type Ty should not be a pointer");
 	union {
 		/* 如果你用 char 会触发零初始化机制, 导致最后多生成一条指令 */
 		NonTrivialDummyTp dummy;
 		std::remove_cv_t<Ty> value;
 	};
-	bool bHasValue;
-	constexpr OptionDestruct() noexcept : dummy{}, bHasValue(false) {}
 
-	template <typename... Types>
-	constexpr explicit OptionDestruct(std::in_place_t, Types&&... Args)
-		noexcept(std::is_nothrow_constructible_v<Ty, Types...>)
-		: value(std::forward<Types>(Args)...), bHasValue(true) {}
+	constexpr OptionDestruct() noexcept : dummy{}, bHasValue(false) {}
 
 	template <typename Fn, typename Uty>
 	constexpr  OptionDestruct(ConstructFromInvokeResultTag, Fn&& fn, Uty&& arg)
@@ -88,26 +94,25 @@ struct OptionDestruct<Ty, false> {
 		)
 		: value(std::invoke(std::forward<Fn>(fn), std::forward<Uty>(arg))), bHasValue(true){}
 
-	~OptionDestruct() noexcept{
-		__Cleanup();
-	}
-	OptionDestruct(const OptionDestruct&)            = default;
-    OptionDestruct(OptionDestruct&&)                 = default;
-    OptionDestruct& operator=(const OptionDestruct&) = default;
-    OptionDestruct& operator=(OptionDestruct&&)      = default;
-	
+	template <typename... Types>
+	constexpr explicit OptionDestruct(std::in_place_t, Types&&... Args)
+		noexcept(std::is_nothrow_constructible_v<Ty, Types...>)
+		: value(std::forward<Types>(Args)...), bHasValue(true) {}
 
-	void Reset() noexcept {
-		__Cleanup();
+	void __Cleanup() noexcept{
+		bHasValue = false;
+	}
+
+	bool HasValue() const noexcept {
+		return bHasValue;
+	}
+	void SetValue(bool bHasValue) noexcept {
+		this->bHasValue = bHasValue;
 	}
 private:
-	void __Cleanup() noexcept{
-		if (bHasValue){
-			value.~Ty();
-			bHasValue = false;
-		}
-	}
+	bool bHasValue;
 };
+
 
 template <typename Ty>
 struct OptionConstruct : OptionDestruct<Ty> {
@@ -118,7 +123,7 @@ struct OptionConstruct : OptionDestruct<Ty> {
 		noexcept(std::is_nothrow_constructible_v<Ty, Types...>)
 	{
 		std::construct_at(this->value, std::forward<Types>(Args)...);
-		this->bHasValue = true;
+		this->SetValue(true);
 		return this->value;
 	}
 
@@ -126,7 +131,7 @@ struct OptionConstruct : OptionDestruct<Ty> {
 	void __Assign(Ty2&& that)
 		noexcept(std::is_nothrow_assignable_v<Ty&, Ty2> && std::is_nothrow_constructible_v<Ty, Ty2>)
 	{
-		if (this->bHasValue) {
+		if (this->HasValue()) {
 			static_cast<Ty&>(this->value) = std::forward<Ty2>(that);
 		}else{
 			Construct(std::forward<Ty2>(that));
@@ -140,7 +145,7 @@ struct OptionConstruct : OptionDestruct<Ty> {
 			decltype(*std::forward<Self>(right))
 		>)
 	{
-		if (right.bHasValue){
+		if (right.HasValue()){
 			__Construct(*std::forward<Self>(right));
 		}
 	}
@@ -158,7 +163,7 @@ struct OptionConstruct : OptionDestruct<Ty> {
 			>
 		)
 	{
-		if (right.bHasValue){
+		if (right.HasValue()){
 			__Assign(*std::forward<Self>(right));
 		}else{
 			this->__Cleanup();
@@ -473,7 +478,7 @@ public:
 			using TrivialBaseTp = OptionDestruct<Ty>;
 			std::swap(static_cast<TrivialBaseTp&>(*this), static_cast<TrivialBaseTp&>(that));
 		}else{
-			const bool Engaged = this->bHasValue;
+			const bool Engaged = this->HasValue();
 			if (Engaged){
 				using std::swap;
 				swap(**this, *that);
@@ -487,39 +492,39 @@ public:
 	}
 
 	[[nodiscard]] constexpr const Ty* operator->() const noexcept {
-		assert(this->bHasValue && "Optional::operator->() call on empty optional");
+		assert(this->HasValue() && "Optional::operator->() call on empty optional");
 		return std::addressof(this->value);
 	}
 	[[nodiscard]] constexpr Ty* operator->() noexcept {
-		assert(this->bHasValue && "Optional::operator->() call on empty optional");
+		assert(this->HasValue() && "Optional::operator->() call on empty optional");
 		return std::addressof(this->value);
 	}	
 	[[nodiscard]] constexpr bool HasValue() const noexcept {
-		return this->bHasValue;
+		return this->HasValue();
 	}
 	[[nodiscard]] constexpr explicit operator bool() const noexcept {
-		return this->bHasValue;
+		return this->HasValue();
 	}
 	[[nodiscard]] constexpr const Ty& Value() const& {
-		if (!this->bHasValue){
+		if (!this->HasValue()){
 			throw std::bad_optional_access();
 		}
 		return this->value;
 	}
 	[[nodiscard]] constexpr Ty& Value() & {
-		if (!this->bHasValue){
+		if (!this->HasValue()){
 			throw std::bad_optional_access();
 		}
 		return this->value;
 	}
 	[[nodiscard]] constexpr Ty&& Value() && {
-		if (!this->bHasValue){
+		if (!this->HasValue()){
 			throw std::bad_optional_access();
 		}
 		return std::move(this->value);
 	}
 	[[nodiscard]] constexpr const Ty&& Value() const&& {
-		if (!this->bHasValue){
+		if (!this->HasValue()){
 			throw std::bad_optional_access();
 		}
 		return std::move(this->value);
@@ -533,7 +538,7 @@ public:
         static_assert(std::is_convertible_v<Ty2, std::remove_cv_t<Ty>>,
             "Optioanal::ValueOr(U) requires U to be convertible to remove_cv_t<Ty> "
 		);
-		if (this->bHasValue){
+		if (this->HasValue()){
 			return std::move(this->value);
 		}
 		return static_cast<std::remove_cv_t<Ty>>(std::forward<Ty2>(that));
@@ -546,7 +551,7 @@ public:
         static_assert(std::is_convertible_v<Ty2, std::remove_cv_t<Ty>>,
             "Optioanal::ValueOr(U) requires U to be convertible to remove_cv_t<Ty> "
 		);
-		if (this->bHasValue){
+		if (this->HasValue()){
 			return static_cast<const Ty&>(this->value);
 		}
 		return static_cast<std::remove_cv_t<Ty>>(std::forward<Ty2>(that));
@@ -558,7 +563,7 @@ public:
 		static_assert(IsSpecializationValOf<std::remove_cvref_t<Utp>, Optional>,
 			"Optional<T>::AndThen(Fn) requires the return type of Fn to be a specialization of optional"
 		);
-		if (this->bHasValue){
+		if (this->HasValue()){
 			return std::invoke(std::forward<Fn>(fn), static_cast<Ty&>(this->value));
 		}else{
 			return std::remove_cvref_t<Utp>{};
@@ -570,7 +575,7 @@ public:
 		static_assert(IsSpecializationValOf<std::remove_cvref_t<Utp>, Optional>,
 			"Optional<T>::AndThen(Fn) requires the return type of Fn to be a specialization of optional"
 		);
-		if (this->bHasValue){
+		if (this->HasValue()){
 			return std::invoke(std::forward<Fn>(fn), static_cast<const Ty&>(this->value));
 		}else{
 			return std::remove_cvref_t<Utp>{};
@@ -582,7 +587,7 @@ public:
 		static_assert(IsSpecializationValOf<std::remove_cvref_t<Utp>, Optional>,
 			"Optional<T>::AndThen(Fn) requires the return type of Fn to be a specialization of optional"
 		);
-		if (this->bHasValue){
+		if (this->HasValue()){
 			return std::invoke(std::forward<Fn>(fn), static_cast<Ty&&>(this->value));
 		}else{
 			return std::remove_cvref_t<Utp>{};
@@ -594,7 +599,7 @@ public:
 		static_assert(IsSpecializationValOf<std::remove_cvref_t<Utp>, Optional>,
 			"Optional<T>::AndThen(Fn) requires the return type of Fn to be a specialization of optional"
 		);
-		if (this->bHasValue){
+		if (this->HasValue()){
 			return std::invoke(std::forward<Fn>(fn), static_cast<const Ty&&>(this->value));
 		}else{
 			return std::remove_cvref_t<Utp>{};
@@ -614,7 +619,7 @@ public:
 			"Optional<T>::Map(Fn) requires the return type of Fn a non-array object type"
 		);
 
-		if  (this->bHasValue){
+		if  (this->HasValue()){
 			return Optional<Utp>{
 				ConstructFromInvokeResultTag{}, 
 				std::forward<Fn>(fn), 
@@ -637,7 +642,7 @@ public:
 			"Optional<T>::Map(Fn) requires the return type of Fn a non-array object type"
 		);
 
-		if  (this->bHasValue){
+		if  (this->HasValue()){
 			return Optional<Utp>{
 				ConstructFromInvokeResultTag{}, 
 				std::forward<Fn>(fn), 
@@ -661,7 +666,7 @@ public:
 			"Optional<T>::Map(Fn) requires the return type of Fn a non-array object type"
 		);
 
-		if  (this->bHasValue){
+		if  (this->HasValue()){
 			return Optional<Utp>{
 				ConstructFromInvokeResultTag{}, 
 				std::forward<Fn>(fn), 
@@ -685,7 +690,7 @@ public:
 			"Optional<T>::Map(Fn) requires the return type of Fn a non-array object type"
 		);
 
-		if  (this->bHasValue){
+		if  (this->HasValue()){
 			return Optional<Utp>{
 				ConstructFromInvokeResultTag{}, 
 				std::forward<Fn>(fn), 
@@ -714,7 +719,7 @@ public:
 			"Optional<Ty>::OrElse(Fn) requires Fn to return an Optional<Ty>"
 		);
 
-		if (this->bHasValue){
+		if (this->HasValue()){
 			return *this;
 		}else{
 			return std::forward<Fn>(fn)();
@@ -739,7 +744,7 @@ public:
 			"Optional<Ty>::OrElse(Fn) requires Fn to return an Optional<Ty>"
 		);
 
-		if (this->bHasValue){
+		if (this->HasValue()){
 			return std::move(*this);
 		}else{
 			return std::forward<Fn>(fn)();
@@ -760,7 +765,7 @@ public:
 	CONSTEXPR20 auto OrElse (const Optional<Ty2>& that)
 		noexcept(std::is_nothrow_constructible_v<Ty, const Ty2&>) 
 	{
-		if (this->bHasValue){
+		if (this->HasValue()){
 			return *this;
 		} else {
 			this->__Construct(*that);
@@ -774,7 +779,7 @@ public:
 	constexpr auto OrElse(std::in_place_t, Types&& ... Args)
 		noexcept (std::is_nothrow_constructible_v<Ty, Types...>)
 	{
-		if (this->bHasValue){
+		if (this->HasValue()){
 			return *this;
 		}else {
 			return Optional<Ty>{std::in_place, std::forward<Types>(Args)...};
@@ -805,7 +810,7 @@ public:
 		>
 	) 
 	{
-		if (this->bHasValue){
+		if (this->HasValue()){
 			return *this;
 		}else{
 			return Optional<Ty> {std::in_place, list, std::forward<Types>(args)...};
@@ -823,7 +828,7 @@ template <typename Ty1, typename Ty2>
 		noexcept(FakeCopyInit<bool>(*left == *right))
 	)
 	requires requires {
-		{ *left == *right } -> ImplicitlyConvertibletTo<bool>;
+		{ *left == *right } -> ImplicitlyConvertibleTo<bool>;
 	}
 {
 	const bool bLeftHasValue = left.HasValue();
@@ -841,7 +846,7 @@ template <typename Ty1, typename Ty2>
 		noexcept(FakeCopyInit<bool>(*left != *right))
 	)
 	requires requires {
-		{ *left != *right } -> ImplicitlyConvertibletTo<bool>;
+		{ *left != *right } -> ImplicitlyConvertibleTo<bool>;
 	}
 {
 	const bool bLeftHasValue = left.HasValue();
@@ -857,7 +862,7 @@ template <typename Ty1, typename Ty2>
 		noexcept(FakeCopyInit<bool>(*left > *right))
 	)
 	requires requires {
-		{ *left > *right } -> ImplicitlyConvertibletTo<bool>;
+		{ *left > *right } -> ImplicitlyConvertibleTo<bool>;
 	}
 {
 	const bool bLeftHasValue = left.HasValue();
@@ -873,7 +878,7 @@ template <typename Ty1, typename Ty2>
 		noexcept(FakeCopyInit<bool>(*left < *right))
 	)
 	requires requires {
-		{ *left < *right } -> ImplicitlyConvertibletTo<bool>;
+		{ *left < *right } -> ImplicitlyConvertibleTo<bool>;
 	}
 {
 	const bool bLeftHasValue = left.HasValue();
@@ -889,7 +894,7 @@ template <typename Ty1, typename Ty2>
 		noexcept(FakeCopyInit<bool>(*left >= *right))
 	)
 	requires requires {
-		{ *left >= *right } -> ImplicitlyConvertibletTo<bool>;
+		{ *left >= *right } -> ImplicitlyConvertibleTo<bool>;
 	}
 {
 	const bool bLeftHasValue = left.HasValue();
@@ -905,7 +910,7 @@ template <typename Ty1, typename Ty2>
 		noexcept(FakeCopyInit<bool>(*left <= *right))
 	)
 	requires requires {
-		{ *left <= *right } -> ImplicitlyConvertibletTo<bool>;
+		{ *left <= *right } -> ImplicitlyConvertibleTo<bool>;
 	}
 {
 	const bool bLeftHasValue = left.HasValue();

@@ -299,4 +299,12 @@ template <typename Ty>
 [[nodiscard]] Ty FakeCopyInit(Ty) noexcept;
 
 template <typename From, typename To>
-concept ImplicitlyConvertibletTo = std::is_convertible_v<From, To>;
+concept ImplicitlyConvertibleTo = std::is_convertible_v<From, To>;
+
+template <typename Pointer>
+constexpr bool IsPointerVal = 
+    std::is_pointer<Pointer>::value || 
+    is_smart_ptr<Pointer>::value;
+
+template <typename Pointer>
+constexpr bool IsSmartPtrVal = is_smart_ptr<Pointer>::value;
