@@ -731,6 +731,72 @@ public:
 
 	}
 
+	template <
+		typename Ty2,
+		std::enable_if_t<
+			std::conjunction_v<
+				__IsAllowUnwrapping<Ty2>,
+				std::is_constructible<Ty, const Ty2&>
+			>, 
+			int
+		> = 0
+	>
+	CONSTEXPR20 auto OrElse (const Optional<Ty2>& that)
+		noexcept(std::is_nothrow_constructible_v<Ty, const Ty2&>) 
+	{
+		if (this->bHasValue){
+			return *this;
+		} else {
+			this->__Construct(*that);
+		}
+	}
+
+	template <
+		typename... Types, 
+		std::enable_if_t<std::is_constructible_v<Ty, Types...>, int> = 0
+	>
+	constexpr auto OrElse(std::in_place_t, Types&& ... Args)
+		noexcept (std::is_nothrow_constructible_v<Ty, Types...>)
+	{
+		if (this->bHasValue){
+			return *this;
+		}else {
+			return Optional<Ty>{std::in_place, std::forward<Types>(Args)...};
+		}
+	}
+
+	template <
+		typename Elem, 
+		typename... Types,
+		std::enable_if_t<
+			std::is_constructible_v<
+				Ty, 
+				std::initializer_list<Elem>&, 
+				Types...
+			>, 
+			int 
+		> = 0
+	>
+	constexpr auto OrElse(
+		std::in_place_t, 
+		std::initializer_list<Elem> list,  
+		Types&&... args
+	) noexcept (
+		std::is_nothrow_constructible_v<
+			Ty, 
+			std::initializer_list<Elem>&, 
+			Types...
+		>
+	) 
+	{
+		if (this->bHasValue){
+			return *this;
+		}else{
+			return Optional<Ty> {std::in_place, list, std::forward<Types>(args)...};
+		}
+	}
+
+
 	constexpr auto ToList(){}
 };
 
