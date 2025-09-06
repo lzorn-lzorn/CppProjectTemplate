@@ -60,7 +60,7 @@ struct OptionDestruct {
 		: value(std::forward<Types>(Args)...), bHasValue(true) {}
 
 	void __Cleanup() noexcept {
-		value = nullptr;
+		bHasValue = false;
 	}
 	
 	bool HasValue() const noexcept {
