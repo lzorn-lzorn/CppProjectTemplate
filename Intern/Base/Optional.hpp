@@ -22,6 +22,8 @@ struct ConstructFromInvokeResultTag{
 struct NulloptTp{
 	/* 防止直接从 {} 就能构造出 NulloptTp */
 	explicit NulloptTp() = default;
+	friend bool operator==(NulloptTp, std::nullopt_t) { return true; }
+    friend bool operator==(std::nullopt_t, NulloptTp) { return true; }
 };
 
 inline constexpr NulloptTp nullopt{};
@@ -194,6 +196,7 @@ public:
 
 	constexpr Optional() noexcept {}
 	constexpr Optional(NulloptTp)  noexcept {}
+	constexpr Optional(std::nullopt_t)  noexcept {}
 
 	template <
 		typename... Types, 
@@ -344,6 +347,11 @@ public:
 	}
 
 	CONSTEXPR20 Optional& operator=(NulloptTp) noexcept {
+		this->__Cleanup();
+		return *this;
+	}
+
+	CONSTEXPR20 Optional& operator=(std::nullopt_t) noexcept {
 		this->__Cleanup();
 		return *this;
 	}
@@ -596,11 +604,13 @@ public:
 	template <typename Fn>
 	constexpr auto Map(Fn&& fn) & {
 		using Utp = std::remove_cv_t<std::invoke_result_t<Fn, Ty&>>;
-
+		static_assert(IsAnyValOf<Utp, std::nullopt_t, std::in_place_t>, 
+				"Optional<T>::Map(Fn) requires the return type of Fn to be neither std:: nor std::in_place_t"
+		);
 		static_assert(IsAnyValOf<Utp, NulloptTp, std::in_place_t>, 
 			"Optional<T>::Map(Fn) requires the return type of Fn to be neither NulloptTp nor std::in_place_t"
 		);
-		static_assert(std::is_object_v<Utp>  && !std::is_array_v<Utp>, 
+		static_assert(std::is_object_v<Utp> && !std::is_array_v<Utp>, 
 			"Optional<T>::Map(Fn) requires the return type of Fn a non-array object type"
 		);
 
@@ -617,7 +627,9 @@ public:
 	template <typename Fn>
 	constexpr auto Map(Fn&& fn) const & {
 		using Utp = std::remove_cv_t<std::invoke_result_t<Fn, const Ty&>>;
-
+		static_assert(IsAnyValOf<Utp, std::nullopt_t, std::in_place_t>, 
+			"Optional<T>::Map(Fn) requires the return type of Fn to be neither std::nullopt_t nor std::in_place_t"
+		);
 		static_assert(IsAnyValOf<Utp, NulloptTp, std::in_place_t>, 
 			"Optional<T>::Map(Fn) requires the return type of Fn to be neither NulloptTp nor std::in_place_t"
 		);
@@ -639,7 +651,9 @@ public:
 	template <typename Fn>
 	constexpr auto Map(Fn&& fn) && {
 		using Utp = std::remove_cv_t<std::invoke_result_t<Fn, Ty>>;
-
+		static_assert(IsAnyValOf<Utp, std::nullopt_t, std::in_place_t>, 
+			"Optional<T>::Map(Fn) requires the return type of Fn to be neither std::nullopt_t nor std::in_place_t"
+		);
 		static_assert(IsAnyValOf<Utp, NulloptTp, std::in_place_t>, 
 			"Optional<T>::Map(Fn) requires the return type of Fn to be neither NulloptTp nor std::in_place_t"
 		);
@@ -661,7 +675,9 @@ public:
 	template <typename Fn>
 	constexpr auto Map(Fn&& fn) const && {
 		using Utp = std::remove_cv_t<std::invoke_result_t<Fn, Ty>>;
-
+		static_assert(IsAnyValOf<Utp, std::nullopt_t, std::in_place_t>, 
+			"Optional<T>::Map(Fn) requires the return type of Fn to be neither std::nullopt_t nor std::in_place_t"
+		);
 		static_assert(IsAnyValOf<Utp, NulloptTp, std::in_place_t>, 
 			"Optional<T>::Map(Fn) requires the return type of Fn to be neither NulloptTp nor std::in_place_t"
 		);
@@ -963,6 +979,55 @@ template <class Ty>
 }
 template <class Ty>
 [[nodiscard]] constexpr bool operator>=(NulloptTp, const Optional<Ty>& right) noexcept {
+    return !right.has_value();
+}
+template <class Ty>
+[[nodiscard]] constexpr bool operator==(std::nullopt_t, const Optional<Ty>& right) noexcept {
+    return !right.has_value();
+}
+
+template <class Ty>
+[[nodiscard]] constexpr bool operator!=(const Optional<Ty>& left, std::nullopt_t) noexcept {
+    return left.has_value();
+}
+template <class Ty>
+[[nodiscard]] constexpr bool operator!=(std::nullopt_t, const Optional<Ty>& right) noexcept {
+    return right.has_value();
+}
+
+template <class Ty>
+[[nodiscard]] constexpr bool operator<(const Optional<Ty>&, std::nullopt_t) noexcept {
+    return false;
+}
+template <class Ty>
+[[nodiscard]] constexpr bool operator<(std::nullopt_t, const Optional<Ty>& right) noexcept {
+    return right.has_value();
+}
+
+template <class Ty>
+[[nodiscard]] constexpr bool operator>(const Optional<Ty>& left, std::nullopt_t) noexcept {
+    return left.has_value();
+}
+template <class Ty>
+[[nodiscard]] constexpr bool operator>(std::nullopt_t, const Optional<Ty>&) noexcept {
+    return false;
+}
+
+template <class Ty>
+[[nodiscard]] constexpr bool operator<=(const Optional<Ty>& left, std::nullopt_t) noexcept {
+    return !left.has_value();
+}
+template <class Ty>
+[[nodiscard]] constexpr bool operator<=(std::nullopt_t, const Optional<Ty>&) noexcept {
+    return true;
+}
+
+template <class Ty>
+[[nodiscard]] constexpr bool operator>=(const Optional<Ty>&, std::nullopt_t) noexcept {
+    return true;
+}
+template <class Ty>
+[[nodiscard]] constexpr bool operator>=(std::nullopt_t, const Optional<Ty>& right) noexcept {
     return !right.has_value();
 }
 
