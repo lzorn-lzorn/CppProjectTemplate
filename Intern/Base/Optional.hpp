@@ -33,10 +33,9 @@ struct NonTrivialDummyTp {
 	constexpr NonTrivialDummyTp() noexcept{} 
 };
 
-/* 平凡析构 + 指针 => 平凡指针 */
 template <typename Ty, bool = std::is_trivially_destructible_v<Ty>>
 struct OptionDestruct {
-	static_assert(IsPointerVal<Ty>, "The type Ty should not be a pointer, pls use smart ptr");
+	static_assert(!IsPointerVal<Ty>, "The type Ty should not be a pointer, pls use smart ptr");
 	union {
 		/* 如果你用 char 会触发零初始化机制, 导致最后多生成一条指令 */
 		NonTrivialDummyTp dummy;
@@ -49,7 +48,9 @@ struct OptionDestruct {
 	constexpr  OptionDestruct(ConstructFromInvokeResultTag, Fn&& fn, Uty&& arg)
 		noexcept(
 			noexcept(
-				static_cast<Ty>(std::invoke(std::forward<Fn>(fn),  std::forward<Uty>(arg)))
+				static_cast<Ty>(
+					std::invoke(std::forward<Fn>(fn),  std::forward<Uty>(arg))
+				)
 			)
 		)
 		: value(std::invoke(std::forward<Fn>(fn), std::forward<Uty>(arg))), bHasValue(true) {}
@@ -59,12 +60,17 @@ struct OptionDestruct {
 		noexcept(std::is_nothrow_constructible_v<Ty, Types...>)
 		: value(std::forward<Types>(Args)...), bHasValue(true) {}
 
+	/* need C++20 */
+	constexpr ~OptionDestruct() noexcept {
+		__Cleanup();
+	}
+
 	void __Cleanup() noexcept {
 		bHasValue = false;
 	}
 	
 	bool HasValue() const noexcept {
-		return value != nullptr;
+		return bHasValue;
 	}
 	void SetValue(bool bHasValue) noexcept {
 		this->bHasValue = bHasValue;
@@ -79,7 +85,7 @@ private:
 
 template <typename Ty>
 struct OptionDestruct<Ty, false>{
-	static_assert(IsPointerVal<Ty>, "The type Ty should not be a pointer, pls use smart ptr");
+	static_assert(!IsPointerVal<Ty>, "The type Ty should not be a pointer, pls use smart ptr");
 	union {
 		/* 如果你用 char 会触发零初始化机制, 导致最后多生成一条指令 */
 		NonTrivialDummyTp dummy;
@@ -89,7 +95,7 @@ struct OptionDestruct<Ty, false>{
 	constexpr OptionDestruct() noexcept : dummy{}, bHasValue(false) {}
 
 	template <typename Fn, typename Uty>
-	constexpr  OptionDestruct(ConstructFromInvokeResultTag, Fn&& fn, Uty&& arg)
+	constexpr OptionDestruct(ConstructFromInvokeResultTag, Fn&& fn, Uty&& arg)
 		noexcept(
 			noexcept(
 				static_cast<Ty>(std::invoke(std::forward<Fn>(fn),  std::forward<Uty>(arg)))
@@ -102,7 +108,60 @@ struct OptionDestruct<Ty, false>{
 		noexcept(std::is_nothrow_constructible_v<Ty, Types...>)
 		: value(std::forward<Types>(Args)...), bHasValue(true) {}
 
+	/* need C++20 */
+	constexpr ~OptionDestruct() noexcept {
+		__Cleanup();
+	}
+	/* C++ 标准要求 union 包含非平凡成员时，必须显式定义拷贝构造和赋值，否则编译器会自动删除它们 */
+	// 手动实现拷贝构造
+    OptionDestruct(const OptionDestruct& other)
+        noexcept(std::is_nothrow_copy_constructible_v<Ty>)
+        : bHasValue(other.bHasValue)
+    {
+        if (bHasValue) {
+			std::construct_at(&value, other.value);
+        }
+    }
+
+    // 手动实现拷贝赋值
+    OptionDestruct& operator=(const OptionDestruct& other)
+        noexcept(std::is_nothrow_copy_assignable_v<Ty>)
+    {
+        if (this != &other) {
+            if (bHasValue) value.~Ty();
+            bHasValue = other.bHasValue;
+            if (bHasValue) {
+				std::construct_at(&value, other.value);
+			}
+        }
+        return *this;
+    }
+	
+	    // 移动构造
+    OptionDestruct(OptionDestruct&& other)
+        noexcept(std::is_nothrow_move_constructible_v<Ty>)
+        : bHasValue(other.bHasValue)
+    {
+        if (bHasValue) {
+            std::construct_at(&value, std::move(other.value));
+        }
+    }
+
+    // 移动赋值
+    OptionDestruct& operator=(OptionDestruct&& other)
+        noexcept(std::is_nothrow_move_assignable_v<Ty>)
+    {
+        if (this != &other) {
+            if (bHasValue) value.~Ty();
+            bHasValue = other.bHasValue;
+            if (bHasValue) std::construct_at(&value, std::move(other.value));
+        }
+        return *this;
+    }
 	void __Cleanup() noexcept{
+		if (bHasValue) {
+			value.~Ty();
+		}	
 		bHasValue = false;
 	}
 
@@ -125,7 +184,7 @@ struct OptionConstruct : OptionDestruct<Ty> {
 	Ty& __Construct(Types&&... Args) 
 		noexcept(std::is_nothrow_constructible_v<Ty, Types...>)
 	{
-		std::construct_at(this->value, std::forward<Types>(Args)...);
+		std::construct_at(&this->value, std::forward<Types>(Args)...);
 		this->SetValue(true);
 		return this->value;
 	}
@@ -191,9 +250,9 @@ struct OptionConstruct : OptionDestruct<Ty> {
 template <typename Ty>
 class Optional : private Traits::AutoControlSMF<OptionConstruct<Ty>, Ty> {
 	using MyBaseClassTp = Traits::AutoControlSMF<OptionConstruct<Ty>, Ty>;
-
-	using MyBaseClassTp::__Cleanup;
-	using MyBaseClassTp::operator*;
+	
+	using MyBaseClassTp::MyBaseClassTp;
+	
 	/*
 	 * 为了跨类型的访问 Optional<U> <-->  Optional<T>
     */
@@ -238,12 +297,13 @@ public:
 		>
 	)  : MyBaseClassTp (std::in_place, list, std::forward<Types>(args)...) {}
 
+
 	template <typename Fn, typename Uty>
 	constexpr Optional(ConstructFromInvokeResultTag tag, Fn&& fn, Uty&& arg)
 		noexcept(
 			noexcept(
 				static_cast<Ty>(
-					std::invoke(std::forward<Fn>(fn)), std::forward<Uty>(arg)
+					std::invoke(std::forward<Fn>(fn), std::forward<Uty>(arg))
 				)
 			)
 		)
@@ -494,16 +554,22 @@ public:
 		}
 	}
 
+	// [[nodiscard]] constexpr Ty& operator*() & noexcept {
+	// 	return this->value;
+	// }
+	// [[nodiscard]] constexpr const Ty& operator*() const & noexcept {
+	// 	return this->value;
+	// }
+	using MyBaseClassTp::operator*;
+
 	[[nodiscard]] constexpr const Ty* operator->() const noexcept {
-		assert(this->HasValue() && "Optional::operator->() call on empty optional");
 		return std::addressof(this->value);
 	}
 	[[nodiscard]] constexpr Ty* operator->() noexcept {
-		assert(this->HasValue() && "Optional::operator->() call on empty optional");
 		return std::addressof(this->value);
 	}	
 	[[nodiscard]] constexpr bool HasValue() const noexcept {
-		return this->HasValue();
+		return MyBaseClassTp::HasValue();
 	}
 	[[nodiscard]] constexpr explicit operator bool() const noexcept {
 		return this->HasValue();
