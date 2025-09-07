@@ -77,6 +77,10 @@ void RenderProcess::InitPipeline(int width, int height) {
 	blend.setLogicOpEnable(false)
 		 .setAttachments(attaches);
 	pipelineCreateInfo.setPColorBlendState(&blend);
+	
+	// 9. Set Layout and RenderPass
+	pipelineCreateInfo.setLayout(vkPipelineLayout)
+					   .setRenderPass(vkRenderPass);
 
 	auto result = VulkanContext::Instance().vkDevice.createGraphicsPipeline(nullptr, pipelineCreateInfo);
 	if (result.result != vk::Result::eSuccess) {
@@ -85,10 +89,56 @@ void RenderProcess::InitPipeline(int width, int height) {
 	vkPipeline = result.value;
 
 }
-
-void RenderProcess::DestroyPipeline() {
-	// Destroy the Vulkan pipeline
-	VulkanContext::Instance().vkDevice.destroyPipeline(vkPipeline);
+void RenderProcess::InitLayout() {
+	// Initialize the Vulkan pipeline layout
+	vk::PipelineLayoutCreateInfo layoutInfo;
+	vkPipelineLayout = VulkanContext::Instance().vkDevice.createPipelineLayout(layoutInfo);
 }
 
+void RenderProcess::InitRenderPass(){
+	vk::RenderPassCreateInfo renderPassInfo;
+	vk::AttachmentDescription attachment;
+
+	attachment.setFormat(VulkanContext::Instance().swapchain->info.format.format)
+			  .setSamples(vk::SampleCountFlagBits::e1)
+			  .setLoadOp(vk::AttachmentLoadOp::eClear) 
+			  .setStoreOp(vk::AttachmentStoreOp::eStore) 
+			  .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+			  .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+			/* 不关心布局 */
+			  .setInitialLayout(vk::ImageLayout::eUndefined) 
+			/* 最终作为颜色附件 */
+			  .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);  			  
+	renderPassInfo.setAttachments(attachment);
+
+	vk::AttachmentReference refAttachment;
+	refAttachment.setAttachment(0) // 引用第0个附件
+				 .setLayout(vk::ImageLayout::eColorAttachmentOptimal); // 作为颜色附件
+
+	vk::SubpassDescription subpass;
+	subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+		   .setColorAttachments(refAttachment);
+	renderPassInfo.setSubpasses(subpass);
+
+	vk::SubpassDependency dependency;
+	dependency.setSrcSubpass(VK_SUBPASS_EXTERNAL) // 外部依赖
+			  .setDstSubpass(0) // 依赖第0个子通道
+			  .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+			  .setSrcAccessMask(vk::AccessFlags()) // 不需要等待
+			  .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+			  .setDstAccessMask(
+				vk::AccessFlagBits::eColorAttachmentRead | 
+				vk::AccessFlagBits::eColorAttachmentWrite
+			  );
+	renderPassInfo.setDependencies(dependency);
+
+	vkRenderPass = VulkanContext::Instance().vkDevice.createRenderPass(renderPassInfo);
+}
+
+RenderProcess::~RenderProcess() {
+	VulkanContext::Instance().vkDevice.destroyRenderPass(vkRenderPass);
+	VulkanContext::Instance().vkDevice.destroyPipelineLayout(vkPipelineLayout);
+	VulkanContext::Instance().vkDevice.destroyRenderPass(vkRenderPass);
+
+}
 }
