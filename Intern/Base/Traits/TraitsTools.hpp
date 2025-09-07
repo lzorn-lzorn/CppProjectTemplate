@@ -9,7 +9,8 @@ template <typename BaseClass>
 struct NonTrivialCopy : BaseClass {
 	using BaseClass::BaseClass;
 	NonTrivialCopy() = default;
-	NonTrivialCopy(const NonTrivialCopy& that) 
+	/* C++20 */
+	constexpr NonTrivialCopy(const NonTrivialCopy& that) 
 		noexcept(
 			noexcept(
 				BaseClass::__ConstructFrom(static_cast<const BaseClass&>(that))
@@ -27,11 +28,12 @@ struct NonTrivialCopy : BaseClass {
  */
 template <typename BaseClass>
 struct DeletedCopy : BaseClass {
+	using BaseClass::BaseClass;
 	DeletedCopy() = default;
 	DeletedCopy(const DeletedCopy&) = delete;
-	DeletedCopy(DeletedCopy&&) = delete;
-	DeletedCopy& operator=(const DeletedCopy&) = delete;
-	DeletedCopy& operator=(DeletedCopy&&) = delete;
+	DeletedCopy(DeletedCopy&&) = default;
+	DeletedCopy& operator=(const DeletedCopy&) = default;
+	DeletedCopy& operator=(DeletedCopy&&) = default;
 };
 
 template <typename BaseClass, typename... Types>
@@ -60,16 +62,18 @@ using SMFControlCopy = std::conditional_t<
 template <typename BaseClass, typename... Types>
 struct NonTrivialMove : SMFControlCopy<BaseClass, Types...> {
 	using MyBaseClassTp = SMFControlCopy<BaseClass, Types...>;
-	using SMFControlCopy<BaseClass, Types...>::SMFControlCopy;
+	using MyBaseClassTp::MyBaseClassTp;
 
 	NonTrivialMove() = default;
 	NonTrivialMove(const NonTrivialMove&) = default;
-	NonTrivialMove(NonTrivialMove&& that) 
+	/* C++20 */
+	constexpr NonTrivialMove(NonTrivialMove&& that) 
 		noexcept(
 			noexcept(
 				MyBaseClassTp::__ConstructFrom(static_cast<BaseClass&&>(that))
 			)
-		) {
+		) 
+	{
 		MyBaseClassTp::__ConstructFrom(static_cast<BaseClass&&>(that));
 	}
 	NonTrivialMove& operator=(const NonTrivialMove&) = default;
@@ -97,27 +101,28 @@ using SMFControlMove = std::conditional_t<
 	/* 不可以平凡移动, 就找 Type... 中的类型有没有可以移动构造的 */	
 	std::conditional_t<
 		std::conjunction_v<std::is_move_constructible<Types>...>,
-		NonTrivialMove<BaseClass>,
+		NonTrivialMove<BaseClass, Types...>,
 		/* 只要有一个没有, 就禁止移动 */
-		DeletedMove<BaseClass>
+		DeletedMove<BaseClass, Types...>
 	>
 >;
 
 template <typename BaseClass, typename... Types>
 struct NonTrivialCopyAssign : SMFControlMove<BaseClass, Types...> {
 	using MyBaseClassTp = SMFControlMove<BaseClass, Types...>;
-	using SMFControlMove<BaseClass, Types...>::SMFControlMove;
+	using MyBaseClassTp::MyBaseClassTp;
 
 	NonTrivialCopyAssign() = default;
 	NonTrivialCopyAssign(const NonTrivialCopyAssign&) = default;
 	NonTrivialCopyAssign(NonTrivialCopyAssign&&) = default;
-
-	NonTrivialCopyAssign& operator=(const NonTrivialCopyAssign& that) 
+	/* C++20 constexpr */
+	constexpr NonTrivialCopyAssign& operator=(const NonTrivialCopyAssign& that) 
 		noexcept(
 			noexcept(
 				MyBaseClassTp::__AssignFrom(static_cast<const BaseClass&>(that))
 			)
-		) {
+		) 
+	{
 		MyBaseClassTp::__AssignFrom(static_cast<const BaseClass&>(that));
 		return *this;
 	}
@@ -127,7 +132,7 @@ struct NonTrivialCopyAssign : SMFControlMove<BaseClass, Types...> {
 template <typename BaseClass, typename... Types>
 struct DeletedCopyAssign : SMFControlMove<BaseClass, Types...> {
 	using MyBaseClassTp = SMFControlMove<BaseClass, Types...>;
-	using SMFControlMove<BaseClass, Types...>::SMFControlMove;
+	using MyBaseClassTp::MyBaseClassTp;
 
 	DeletedCopyAssign() = default;
 	DeletedCopyAssign(const DeletedCopyAssign&) = default;
@@ -159,13 +164,14 @@ using SMFControlCopyAssign = std::conditional_t<
 template <typename BaseClass, typename... Types>
 struct NonTrivialMoveAssign : SMFControlCopyAssign <BaseClass, Types...>{
 	using MyBaseClassTp = SMFControlCopyAssign<BaseClass, Types...>;
-	using SMFControlCopyAssign<BaseClass, Types...>::SMFControlCopyAssign;
+	using MyBaseClassTp::MyBaseClassTp;
 
 	NonTrivialMoveAssign() = default;
 	NonTrivialMoveAssign(const NonTrivialMoveAssign&) = default;
 	NonTrivialMoveAssign(NonTrivialMoveAssign&&) = default;
 	NonTrivialMoveAssign& operator=(const NonTrivialMoveAssign&) = default;
-	NonTrivialMoveAssign& operator=(NonTrivialMoveAssign&& that)
+	/* C++20 constexpr */
+	constexpr NonTrivialMoveAssign& operator=(NonTrivialMoveAssign&& that)
 		noexcept(
 			noexcept(
 				MyBaseClassTp::__AssignFrom(static_cast<BaseClass&&>(that))

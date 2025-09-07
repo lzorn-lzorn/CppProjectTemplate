@@ -261,6 +261,35 @@ bool ConstructTest() {
         }
     }
 
+    struct MoveOnly {
+        MoveOnly() = default;
+        MoveOnly(MoveOnly&&) = default;
+        MoveOnly& operator=(MoveOnly&&) = default;
+        // 禁用拷贝
+        MoveOnly(const MoveOnly&) = delete;
+        MoveOnly& operator=(const MoveOnly&) = delete;
+        int value = 42;
+    };
+    {
+        std::cout << "Running Optional MoveOnly Tests\n";
+
+        std::optional<MoveOnly> o11(std::in_place);
+        std::optional<MoveOnly> o12(std::move(o11));
+        if constexpr (std::is_trivially_destructible_v<MoveOnly>) {
+            std::cout << "MoveOnly is trivially destructible\n";
+        }
+        // Optional<MoveOnly> o3(o12);
+        Optional<MoveOnly> o(std::in_place);
+        if (!o.HasValue() || o->value != 42) {
+            std::cerr << "MoveOnly construct failed\n";
+        }
+        Optional<MoveOnly> o2(std::move(o));
+        if (!o2.HasValue() || o2->value != 42) {
+            std::cerr << "MoveOnly move construct failed\n";
+        }
+        // Optional<MoveOnly> o3(o2); // 拷贝构造被禁用
+    }
+
     // 输出测试结果
     if (all_passed) {
         std::cout << "All Optional construct tests passed!\n";

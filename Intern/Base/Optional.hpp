@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <type_traits>
+#include <xsmf_control.h>
 #include <utility>
 #include "Traits/TraitsTools.hpp"
 #include "Traits/TypeTraits.hpp"
@@ -53,18 +54,28 @@ struct OptionDestruct {
 				)
 			)
 		)
-		: value(std::invoke(std::forward<Fn>(fn), std::forward<Uty>(arg))), bHasValue(true) {}
+		: value(std::invoke(std::forward<Fn>(fn), std::forward<Uty>(arg))), bHasValue{true} {}
 
 	template <typename... Types>
 	constexpr explicit OptionDestruct(std::in_place_t, Types&&... Args)
 		noexcept(std::is_nothrow_constructible_v<Ty, Types...>)
-		: value(std::forward<Types>(Args)...), bHasValue(true) {}
+		: value(std::forward<Types>(Args)...), bHasValue{true} {}
 
-	/* need C++20 */
+	/* ! C++标准规定:
+    	union 包含非平凡成员时，所有 SMF（拷贝/移动构造、赋值、析构）都不会自动生成，除非你显式声明（或 default）它们。
+		如果你自定义了析构函数，编译器不会自动生成其它 SMF（如移动构造），必须手动写 = default。
+		这里再平凡构造时进入, 所以析构函数不能写, 否则移动和拷都生成, 导致 Optional<MoveOnly> o2(std::move(o)); 失败
 	constexpr ~OptionDestruct() noexcept {
 		__Cleanup();
 	}
-
+	constexpr OptionDestruct(const OptionDestruct&) noexcept = default;
+	constexpr OptionDestruct& operator=(const OptionDestruct&) noexcept = default;
+	constexpr OptionDestruct(OptionDestruct&&) noexcept = default;
+	constexpr OptionDestruct& operator=(OptionDestruct&&) noexcept = default;
+		所以要定义就都要定义
+	*/
+	
+	
 	void __Cleanup() noexcept {
 		bHasValue = false;
 	}
@@ -113,51 +124,55 @@ struct OptionDestruct<Ty, false>{
 		__Cleanup();
 	}
 	/* C++ 标准要求 union 包含非平凡成员时，必须显式定义拷贝构造和赋值，否则编译器会自动删除它们 */
-	// 手动实现拷贝构造
-    OptionDestruct(const OptionDestruct& other)
-        noexcept(std::is_nothrow_copy_constructible_v<Ty>)
-        : bHasValue(other.bHasValue)
-    {
-        if (bHasValue) {
-			std::construct_at(&value, other.value);
-        }
-    }
+	OptionDestruct(const OptionDestruct& other) = default;
+	OptionDestruct& operator=(const OptionDestruct& other) = default;
+	OptionDestruct(OptionDestruct&& other) = default;
+	OptionDestruct& operator=(OptionDestruct&& other) = default;
+	// // 手动实现拷贝构造
+    // OptionDestruct(const OptionDestruct& other)
+    //     noexcept(std::is_nothrow_copy_constructible_v<Ty>)
+    //     : bHasValue(other.bHasValue)
+    // {
+    //     if (bHasValue) {
+	// 		std::construct_at(&value, other.value);
+    //     }
+    // }
 
-    // 手动实现拷贝赋值
-    OptionDestruct& operator=(const OptionDestruct& other)
-        noexcept(std::is_nothrow_copy_assignable_v<Ty>)
-    {
-        if (this != &other) {
-            if (bHasValue) value.~Ty();
-            bHasValue = other.bHasValue;
-            if (bHasValue) {
-				std::construct_at(&value, other.value);
-			}
-        }
-        return *this;
-    }
+    // // 手动实现拷贝赋值
+    // OptionDestruct& operator=(const OptionDestruct& other)
+    //     noexcept(std::is_nothrow_copy_assignable_v<Ty>)
+    // {
+    //     if (this != &other) {
+    //         if (bHasValue) value.~Ty();
+    //         bHasValue = other.bHasValue;
+    //         if (bHasValue) {
+	// 			std::construct_at(&value, other.value);
+	// 		}
+    //     }
+    //     return *this;
+    // }
 	
-	    // 移动构造
-    OptionDestruct(OptionDestruct&& other)
-        noexcept(std::is_nothrow_move_constructible_v<Ty>)
-        : bHasValue(other.bHasValue)
-    {
-        if (bHasValue) {
-            std::construct_at(&value, std::move(other.value));
-        }
-    }
+	//     // 移动构造
+    // OptionDestruct(OptionDestruct&& other)
+    //     noexcept(std::is_nothrow_move_constructible_v<Ty>)
+    //     : bHasValue(other.bHasValue)
+    // {
+    //     if (bHasValue) {
+    //         std::construct_at(&value, std::move(other.value));
+    //     }
+    // }
 
-    // 移动赋值
-    OptionDestruct& operator=(OptionDestruct&& other)
-        noexcept(std::is_nothrow_move_assignable_v<Ty>)
-    {
-        if (this != &other) {
-            if (bHasValue) value.~Ty();
-            bHasValue = other.bHasValue;
-            if (bHasValue) std::construct_at(&value, std::move(other.value));
-        }
-        return *this;
-    }
+    // // 移动赋值
+    // OptionDestruct& operator=(OptionDestruct&& other)
+    //     noexcept(std::is_nothrow_move_assignable_v<Ty>)
+    // {
+    //     if (this != &other) {
+    //         if (bHasValue) value.~Ty();
+    //         bHasValue = other.bHasValue;
+    //         if (bHasValue) std::construct_at(&value, std::move(other.value));
+    //     }
+    //     return *this;
+    // }
 	void __Cleanup() noexcept{
 		if (bHasValue) {
 			value.~Ty();
@@ -179,9 +194,9 @@ private:
 template <typename Ty>
 struct OptionConstruct : OptionDestruct<Ty> {
 	using OptionDestruct<Ty>::OptionDestruct;
-
+	/* C++20 constexpr */
 	template <typename... Types>
-	Ty& __Construct(Types&&... Args) 
+	constexpr Ty& __Construct(Types&&... Args) 
 		noexcept(std::is_nothrow_constructible_v<Ty, Types...>)
 	{
 		std::construct_at(&this->value, std::forward<Types>(Args)...);
@@ -190,18 +205,18 @@ struct OptionConstruct : OptionDestruct<Ty> {
 	}
 
 	template <typename Ty2>
-	void __Assign(Ty2&& that)
+	constexpr void __Assign(Ty2&& that)
 		noexcept(std::is_nothrow_assignable_v<Ty&, Ty2> && std::is_nothrow_constructible_v<Ty, Ty2>)
 	{
 		if (this->HasValue()) {
 			static_cast<Ty&>(this->value) = std::forward<Ty2>(that);
 		}else{
-			Construct(std::forward<Ty2>(that));
+			__Construct(std::forward<Ty2>(that));
 		}
 	}
 
 	template <typename Self>
-	void __ConstructFrom(Self&& right)
+	constexpr void __ConstructFrom(Self&& right)
 		noexcept(std::is_nothrow_constructible_v<
 			Ty, 
 			decltype(*std::forward<Self>(right))
@@ -213,7 +228,7 @@ struct OptionConstruct : OptionDestruct<Ty> {
 	}
 
 	template <typename Self>
-	void __AssignFrom(Self&& right)
+	constexpr void __AssignFrom(Self&& right)
 		noexcept(
 			std::is_nothrow_constructible_v<
 				Ty, 
@@ -247,8 +262,12 @@ struct OptionConstruct : OptionDestruct<Ty> {
 		return std::move(this->value);
 	}
 };
+// 暂时取消继承: private Traits::AutoControlSMF<OptionConstruct<Ty>, Ty>;
+// using MyBaseClassTp = Traits::AutoControlSMF<OptionConstruct<Ty>, Ty>;
+// 意义好像不大
 template <typename Ty>
 class Optional : private Traits::AutoControlSMF<OptionConstruct<Ty>, Ty> {
+	// using MyBaseClassTp = 
 	using MyBaseClassTp = Traits::AutoControlSMF<OptionConstruct<Ty>, Ty>;
 	
 	using MyBaseClassTp::MyBaseClassTp;
@@ -259,6 +278,9 @@ class Optional : private Traits::AutoControlSMF<OptionConstruct<Ty>, Ty> {
 	template <class>
 	friend class Optional;
 public:
+	static_assert(!IsAnyValOf<std::remove_cv_t<Ty>, std::nullopt_t, std::in_place_t>, "Optional types cannot be nullopt or in_place");
+	static_assert(std::is_object_v<Ty> && std::is_destructible_v<Ty> && !std::is_array_v<Ty>, "Optional types must be object, destructible and not array");
+
 	using ValueType = Ty;
 
 	constexpr Optional() noexcept {}
@@ -406,7 +428,7 @@ public:
 			int
 		> = 0
 	>
-	CONSTEXPR20 explicit(!std::is_convertible_v<const Ty2&, Ty>) Optional (const Optional<Ty2>&& that)
+	CONSTEXPR20 explicit(!std::is_convertible_v<const Ty2&, Ty>) Optional (Optional<Ty2>&& that)
 		noexcept(std::is_nothrow_constructible_v<Ty, Ty2>) 
 	{
 		if (that){
@@ -679,7 +701,7 @@ public:
 	constexpr auto Map(Fn&& fn) & {
 		using Utp = std::remove_cv_t<std::invoke_result_t<Fn, Ty&>>;
 		static_assert(IsAnyValOf<Utp, std::nullopt_t, std::in_place_t>, 
-				"Optional<T>::Map(Fn) requires the return type of Fn to be neither std:: nor std::in_place_t"
+			"Optional<T>::Map(Fn) requires the return type of Fn to be neither std:: nor std::in_place_t"
 		);
 		static_assert(IsAnyValOf<Utp, NulloptTp, std::in_place_t>, 
 			"Optional<T>::Map(Fn) requires the return type of Fn to be neither NulloptTp nor std::in_place_t"
